@@ -751,6 +751,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	} else if compatibilityChanged {
 		firstClientMessage = normalized
 	}
+	if account.UsesOpenAICodexProtocol() {
+		next, instructionsErr := normalizeCodexCacheableInstructionsBody(firstClientMessage, capturedSessionModel, false, false)
+		if instructionsErr != nil {
+			return fmt.Errorf("normalize first websocket instructions: %w", instructionsErr)
+		}
+		firstClientMessage = next
+	}
 	if account.IsOpenAIOAuthLike() {
 		aliasedBody, reverse, aliased, aliasErr := aliasOpenAIOAuthReservedToolNamesBody(firstClientMessage)
 		if aliasErr != nil {
@@ -1094,6 +1101,13 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			if isResponseCreate && model != "" && model != strings.TrimSpace(gjson.GetBytes(payload, "model").String()) {
 				payload = s.ReplaceModelInBody(payload, model)
+			}
+			if isResponseCreate && account.UsesOpenAICodexProtocol() {
+				next, instructionsErr := normalizeCodexCacheableInstructionsBody(payload, model, false, false)
+				if instructionsErr != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket instructions", instructionsErr)
+				}
+				payload = next
 			}
 			out, blocked, policyErr := s.applyOpenAIFastPolicyToWSResponseCreate(ctx, account, model, payload)
 			// 多轮 passthrough usage：仅在成功（non-block / non-err）

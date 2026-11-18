@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 )
 
 type forcedCodexInstructionsTemplateData struct {
@@ -20,12 +22,32 @@ func applyForcedCodexInstructionsTemplate(
 	templateText string,
 	data forcedCodexInstructionsTemplateData,
 ) (bool, error) {
+	input, _ := reqBody["input"].([]any)
+	continuation, _ := reqBody["previous_response_id"].(string)
+	usePrefix := openai.GPT62ModelID(data.UpstreamModel) != "" && strings.TrimSpace(continuation) == ""
+	var replaceLeading bool
+	if usePrefix {
+		data.ExistingInstructions, replaceLeading = leadingCodexDeveloperInstructions(input)
+	}
 	rendered, err := renderForcedCodexInstructionsTemplate(templateText, data)
 	if err != nil {
 		return false, err
 	}
 	if rendered == "" {
 		return false, nil
+	}
+	if usePrefix {
+		if replaceLeading {
+			if data.ExistingInstructions == rendered {
+				return false, nil
+			}
+			message := input[0].(map[string]any)
+			message["content"] = []any{map[string]any{"type": "input_text", "text": rendered}}
+		} else {
+			input = append([]any{codexDeveloperMessage(rendered)}, input...)
+		}
+		reqBody["input"] = input
+		return true, nil
 	}
 
 	existing, _ := reqBody["instructions"].(string)

@@ -18,6 +18,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -151,7 +152,9 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	}
 
 	if account != nil && account.UsesOpenAICodexProtocol() {
-		if isOpenAICodexModel(reqModel) && !gjson.GetBytes(body, "instructions").Exists() {
+		model := strings.TrimSpace(gjson.GetBytes(body, "model").String())
+		cacheableInstructions := openai.GPT62ModelID(model) != ""
+		if !cacheableInstructions && isOpenAICodexModel(reqModel) && !gjson.GetBytes(body, "instructions").Exists() {
 			nextBody, setErr := sjson.SetBytes(body, "instructions", defaultCodexSynthInstructions(reqModel))
 			if setErr != nil {
 				return nil, fmt.Errorf("set passthrough codex instructions: %w", setErr)
@@ -165,6 +168,13 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		}
 		if normalized {
 			body = normalizedBody
+		}
+		if cacheableInstructions {
+			nextBody, instructionsErr := normalizeCodexCacheableInstructionsBody(body, model, true, isOpenAIResponsesCompactPath(c))
+			if instructionsErr != nil {
+				return nil, instructionsErr
+			}
+			body = nextBody
 		}
 		// 上游 ChatGPT internal API 要求 stream=true，但下游响应形态必须遵循
 		// 客户端原始的 stream 标志：stream=false 时由非流式分支把上游 SSE

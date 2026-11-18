@@ -321,13 +321,13 @@ gateway:
   # 默认 false：保持纯文本 Codex 请求不被改写；客户端显式提供 image_generation tool 时，
   # 仍会在分组允许图片生成的情况下正常转发。
   codex_image_generation_bridge_enabled: false
-  # Optional: template file used to build the final top-level Codex `instructions`.
-  # 可选：用于构建最终 Codex 顶层 `instructions` 的模板文件路径。
+  # Optional: template file for server-provided Codex instructions.
+  # 可选：用于设置服务端 Codex 指令的模板文件路径。
   #
-  # This is applied on the `/v1/messages -> Responses/Codex` conversion path,
-  # after Claude `system` has already been normalized into Codex `instructions`.
-  # 该模板作用于 `/v1/messages -> Responses/Codex` 转换链路，且发生在 Claude `system`
-  # 已经被归一化为 Codex `instructions` 之后。
+  # This applies to `/v1/messages -> Responses/Codex`. Full GPT-6.2 requests
+  # use the first developer message. Older models and continuations use top-level instructions.
+  # 该模板作用于 `/v1/messages -> Responses/Codex`。GPT-6.2 完整请求写入首条
+  # developer 消息。旧模型和续链请求使用顶层 instructions。
   #
   # The template can reference:
   # 模板可引用：

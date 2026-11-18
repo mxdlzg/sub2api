@@ -301,18 +301,16 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
 		}
 	}
 
-	// ChatGPT internal Codex endpoint does not accept role:"system".
-	// Mirror its text into instructions because Codex OAuth requires it. Some
-	// callers must also keep the guidance in input as developer (notably
-	// Responses JSON object mode), while Chat Completions compatibility can
-	// omit text-only messages after promoting them losslessly.
-	if extractSystemMessagesFromInput(reqBody, opts.OmitPromotedSystemMessagesFromInput) {
-		result.Modified = true
-	}
-
-	// instructions 处理逻辑：根据是否是 Codex CLI 分别调用不同方法
-	if !opts.SkipDefaultInstructions && applyInstructions(reqBody, opts.IsCodexCLI) {
-		result.Modified = true
+	cacheableInstructions := openai.GPT62ModelID(normalizedModel) != ""
+	if !cacheableInstructions {
+		// Older models use top-level instructions. JSON object mode also
+		// needs to retain the guidance in input.
+		if extractSystemMessagesFromInput(reqBody, opts.OmitPromotedSystemMessagesFromInput) {
+			result.Modified = true
+		}
+		if !opts.SkipDefaultInstructions && applyInstructions(reqBody, opts.IsCodexCLI) {
+			result.Modified = true
+		}
 	}
 	if isCodexSparkModel(normalizedModel) && applyCodexSparkImageUnsupportedInstructions(reqBody) {
 		result.Modified = true
@@ -357,8 +355,10 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
 		result.Modified = true
 	}
 
-	// Runs after input filtering so it sees the final replayed history. The
-	// compact endpoint has its own wire shape and is left untouched.
+	if cacheableInstructions && normalizeCodexCacheableInstructions(reqBody, normalizedModel, !opts.SkipDefaultInstructions, opts.IsCompact) {
+		result.Modified = true
+	}
+	// Restore web search based on the final replayed history.
 	if !opts.IsCompact && ensureOpenAIOAuthWebSearchToolForHistory(reqBody, opts.ResponsesLite) {
 		result.Modified = true
 	}
