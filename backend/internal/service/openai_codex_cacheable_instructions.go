@@ -116,16 +116,19 @@ func normalizeCodexCacheableInstructions(reqBody map[string]any, model string, s
 	return modified
 }
 
-func leadingCodexDeveloperInstructions(input []any) (string, bool) {
+func leadingCodexDeveloperInstructions(input []any) (string, map[string]any) {
 	if len(input) == 0 {
-		return "", false
+		return "", nil
 	}
 	message, ok := input[0].(map[string]any)
 	if !ok || message["role"] != "developer" {
-		return "", false
+		return "", nil
 	}
 	text, lossless := extractLosslessTextFromContent(message["content"])
-	return strings.TrimSpace(text), lossless
+	if !lossless {
+		return "", nil
+	}
+	return strings.TrimSpace(text), message
 }
 
 // Raw forwarding paths keep the rest of the payload in its original wire

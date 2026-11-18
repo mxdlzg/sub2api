@@ -25,9 +25,9 @@ func applyForcedCodexInstructionsTemplate(
 	input, _ := reqBody["input"].([]any)
 	continuation, _ := reqBody["previous_response_id"].(string)
 	usePrefix := openai.GPT62ModelID(data.UpstreamModel) != "" && strings.TrimSpace(continuation) == ""
-	var replaceLeading bool
+	var leading map[string]any
 	if usePrefix {
-		data.ExistingInstructions, replaceLeading = leadingCodexDeveloperInstructions(input)
+		data.ExistingInstructions, leading = leadingCodexDeveloperInstructions(input)
 	}
 	rendered, err := renderForcedCodexInstructionsTemplate(templateText, data)
 	if err != nil {
@@ -37,12 +37,11 @@ func applyForcedCodexInstructionsTemplate(
 		return false, nil
 	}
 	if usePrefix {
-		if replaceLeading {
+		if leading != nil {
 			if data.ExistingInstructions == rendered {
 				return false, nil
 			}
-			message := input[0].(map[string]any)
-			message["content"] = []any{map[string]any{"type": "input_text", "text": rendered}}
+			leading["content"] = []any{map[string]any{"type": "input_text", "text": rendered}}
 		} else {
 			input = append([]any{codexDeveloperMessage(rendered)}, input...)
 		}

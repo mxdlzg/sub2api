@@ -55,7 +55,7 @@ func TestGPT62CodexResponsesCacheableBaseInstructions(t *testing.T) {
 					Concurrency: 1,
 					Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"},
 					Extra: map[string]any{
-						"openai_passthrough":                       tc.passthrough,
+						"openai_passthrough":                        tc.passthrough,
 						"openai_oauth_responses_websockets_v2_mode": OpenAIWSIngressModeOff,
 					},
 				}
@@ -84,7 +84,8 @@ func TestGPT62CodexInstructionPlacement(t *testing.T) {
 		require.NoError(t, applyCodexOAuthTransform(req, false, false).Error)
 		require.NoError(t, applyCodexOAuthTransform(req, false, false).Error)
 		require.Equal(t, "", req["instructions"])
-		input := req["input"].([]any)
+		input, ok := req["input"].([]any)
+		require.True(t, ok)
 		require.Len(t, input, 2)
 		require.Equal(t, codexDeveloperMessage(base), input[0])
 	})
@@ -111,9 +112,12 @@ func TestGPT62CodexInstructionPlacement(t *testing.T) {
 		result := applyCodexOAuthTransformWithOptions(req, codexOAuthTransformOptions{OmitPromotedSystemMessagesFromInput: true})
 		require.NoError(t, result.Error)
 		require.Equal(t, "This turn only", req["instructions"])
-		input := req["input"].([]any)
+		input, ok := req["input"].([]any)
+		require.True(t, ok)
 		require.Len(t, input, 3)
-		require.Equal(t, "developer", input[0].(map[string]any)["role"])
+		first, ok := input[0].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "developer", first["role"])
 		require.Equal(t, codexDeveloperMessage("Later developer update"), input[2])
 	})
 
