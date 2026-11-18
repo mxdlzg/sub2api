@@ -89,6 +89,16 @@ func TestGPT62CodexInstructionPlacement(t *testing.T) {
 		require.Equal(t, codexDeveloperMessage(base), input[0])
 	})
 
+	t.Run("native developer prefix does not trigger a fallback prompt", func(t *testing.T) {
+		req := map[string]any{
+			"model": model,
+			"input": []any{codexDeveloperMessage("Codex client base")},
+		}
+		require.NoError(t, applyCodexOAuthTransform(req, true, false).Error)
+		require.Equal(t, []any{codexDeveloperMessage("Codex client base")}, req["input"])
+		require.NotContains(t, req, "instructions")
+	})
+
 	t.Run("input system stays in order and turn instructions stay separate", func(t *testing.T) {
 		req := map[string]any{
 			"model": model, "instructions": "This turn only",
@@ -126,6 +136,13 @@ func TestGPT62CodexInstructionPlacement(t *testing.T) {
 		require.NoError(t, applyCodexOAuthTransform(req, true, true).Error)
 		require.Len(t, req["input"], 1)
 		require.NotContains(t, req, "instructions")
+	})
+
+	t.Run("compacted replay does not gain a fallback prompt", func(t *testing.T) {
+		body := []byte(`{"model":"gpt-6.2-sol","input":[{"type":"compaction","encrypted_content":"opaque"},{"type":"message","role":"user","content":"hello"}]}`)
+		out, err := normalizeCodexCacheableInstructionsBody(body, model, true, false)
+		require.NoError(t, err)
+		require.Equal(t, body, out)
 	})
 
 	t.Run("template uses the existing developer prefix", func(t *testing.T) {
